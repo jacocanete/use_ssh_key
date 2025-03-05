@@ -1,32 +1,68 @@
 #!/bin/bash
 
+# Define paths to SSH keys
+WORK_KEY="$HOME/.ssh/id_rsa_work"
+PERSONAL_KEY="$HOME/.ssh/id_rsa_personal"
+
+# Ensure SSH agent is running
+if ! pgrep -u "$USER" ssh-agent >/dev/null; then
+  echo "Starting SSH agent..."
+  eval "$(ssh-agent -s)" >/dev/null
+fi
+
+# Detect the currently loaded SSH key
+CURRENT_KEY=$(ssh-add -l 2>/dev/null | awk '{print $3}')
+
+# Determine verbosity
 VERBOSE=false
-if [ "$2" == "-v" ]; then
+if [[ "$2" == "-v" ]]; then
   VERBOSE=true
 fi
 
-if [ "$1" == "work" ]; then
-  if [ -f ~/.ssh/id_rsa_work ]; then
-    ssh-add -d ~/.ssh/id_rsa_personal
-    ssh-add ~/.ssh/id_rsa_work
-    git config --global user.email "jcanete@digitalimpulse.com"
-    git config --global user.name "jcaneteDI"
-    git config --global github.user "jcaneteDI"
-    $VERBOSE && echo "Switched to work key"
-  else
-    echo "Work SSH key not found"
+switch_ssh_key() {
+  local NEW_KEY=$1
+  local NEW_EMAIL=$2
+  local NEW_NAME=$3
+  local NEW_GITHUB_USER=$4
+  local LABEL=$5
+
+  if [[ "$CURRENT_KEY" == "$NEW_KEY" ]]; then
+    echo "Already using $LABEL SSH key. No changes made."
+    exit 0
   fi
-elif [ "$1" == "personal" ]; then
-  if [ -f ~/.ssh/id_rsa_personal ]; then
-    ssh-add -d ~/.ssh/id_rsa_work
-    ssh-add ~/.ssh/id_rsa_personal
-    git config --global user.email "jacogagarincanete@gmail.com"
-    git config --global user.name "jacocanete"
-    git config --global github.user "jacocanete"
-    $VERBOSE && echo "Switched to personal key"
+
+  # Remove other keys before adding the new one
+  ssh-add -D >/dev/null 2>&1
+  ssh-add "$NEW_KEY"
+
+  # Update Git user configuration
+  git config --global user.email "$NEW_EMAIL"
+  git config --global user.name "$NEW_NAME"
+  git config --global github.user "$NEW_GITHUB_USER"
+
+  $VERBOSE && echo "Switched to $LABEL SSH key."
+}
+
+# Handle switching
+case "$1" in
+work)
+  if [[ -f "$WORK_KEY" ]]; then
+    switch_ssh_key "$WORK_KEY" "jcanete@digitalimpulse.com" "jcaneteDI" "jcaneteDI" "work"
   else
-    echo "Personal SSH key not found"
+    echo "Error: Work SSH key not found at $WORK_KEY"
+    exit 1
   fi
-else
-  echo "Usage: $0 [work|personal]"
-fi
+  ;;
+personal)
+  if [[ -f "$PERSONAL_KEY" ]]; then
+    switch_ssh_key "$PERSONAL_KEY" "jacogagarincanete@gmail.com" "jacocanete" "jacocanete" "personal"
+  else
+    echo "Error: Personal SSH key not found at $PERSONAL_KEY"
+    exit 1
+  fi
+  ;;
+*)
+  echo "Usage: use_ssh_key [work|personal] [-v]"
+  exit 1
+  ;;
+esac
