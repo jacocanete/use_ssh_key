@@ -1,0 +1,32 @@
+#!/bin/bash
+
+VERBOSE=false
+if [ "$2" == "-v" ]; then
+  VERBOSE=true
+fi
+
+if [ "$1" == "work" ]; then
+  if [ -f ~/.ssh/id_rsa_work ]; then
+    ssh-add -d ~/.ssh/id_rsa_personal
+    ssh-add ~/.ssh/id_rsa_work
+    git config --global user.email "jcanete@digitalimpulse.com"
+    git config --global user.name "jcaneteDI"
+    git config --global github.user "jcaneteDI"
+    $VERBOSE && echo "Switched to work key"
+  else
+    echo "Work SSH key not found"
+  fi
+elif [ "$1" == "personal" ]; then
+  if [ -f ~/.ssh/id_rsa_personal ]; then
+    ssh-add -d ~/.ssh/id_rsa_work
+    ssh-add ~/.ssh/id_rsa_personal
+    git config --global user.email "jacogagarincanete@gmail.com"
+    git config --global user.name "jacocanete"
+    git config --global github.user "jacocanete"
+    $VERBOSE && echo "Switched to personal key"
+  else
+    echo "Personal SSH key not found"
+  fi
+else
+  echo "Usage: $0 [work|personal]"
+fi
